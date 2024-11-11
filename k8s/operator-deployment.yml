@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springboot-operator-deployment
+  labels:
+    app: springboot-operator
+spec:
+  replicas: 1 # 副本数量，可根据需求调整
+  selector:
+    matchLabels:
+      app: springboot-operator
+  template:
+    metadata:
+      labels:
+        app: springboot-operator
+    spec:
+      # 使用我们创建的 权限账号
+      serviceAccountName: springboot-operator-sa
+      containers:
+        - name: springboot-operator-container
+          image: springboot-operator:1.0.0 # 替换为实际的 Java 应用镜像
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xmx1500m -Xms1500m" # Java 环境变量配置，按需调整
+          resources:
+            limits:
+              memory: "2Gi" # 限制内存
+              cpu: "1"   # 限制 CPU
+            requests:
+              memory: "1Gi"
+              cpu: "250m"
+          livenessProbe: # 健康检查配置
+            httpGet:
+              path: /healthz # 替换为应用的健康检查路径
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe: # 就绪检查配置
+            httpGet:
+              path: /startup # 替换为应用的就绪检查路径
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,9 @@
+apiVersion: com.xx/v1
+kind: SpringBoot
+metadata:
+  name: test-app
+spec:
+  image: nginx:1.27-alpine
+  ports:
+    - name: http
+      containerPort: 2000

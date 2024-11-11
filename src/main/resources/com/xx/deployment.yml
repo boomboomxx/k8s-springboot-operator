@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-name
+  namespace: ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-name
+  template:
+    metadata:
+      labels:
+        app: app-name
+    spec:
+      initContainers:
+        - name: sw-agent
+          image: "skywalking-java-agent:8.16.0-alpine"
+          imagePullPolicy: IfNotPresent
+          command: [ "/bin/sh" ]
+          args: [ "-c", "cp -R /skywalking/agent /agent/" ]
+          volumeMounts:
+            - name: sw-agent
+              mountPath: /agent
+      containers:
+        - name: app-name
+          image: "image:v1.0"
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            postStart:
+              exec:
+                # 获取当前操作系统的 CPU ID, 输出到 authcode 文件中
+                command:
+                  - /bin/sh
+                  - '-c'
+                  - >-
+                    dmidecode -t 4 | grep ID |sort -u |awk -F': ' '{print $2}' | awk 'NR==2'|sed 's/ //g' >> authcode && dmidecode -s system-uuid >> authcode && md5sum authcode | awk -F' ' '{print $1}' > authcode
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: 200m
+              memory: 2Gi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /opt
+              name: sw-agent
+            - name: host-dmidecode
+              mountPath: /sbin/dmidecode
+            - name: host-mem
+              mountPath: /dev/mem
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            failureThreshold: 50
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            failureThreshold: 50
+            periodSeconds: 20
+      volumes:
+        - emptyDir: { }
+          name: sw-agent
+        - name: host-dmidecode
+          hostPath:
+            path: /sbin/dmidecode
+        - name: host-mem
+          hostPath:
+            path: /dev/mem
